@@ -358,7 +358,10 @@ declare @TlogBkpStatus nvarchar(40)
 declare @dbstatus nvarchar(30)
 declare @dbsize nvarchar(300)
 declare @dbbackupsize nvarchar(300)
-declare @dbbackuptime nvarchar(500)
+declare @dbbackuptimef nvarchar(500)
+declare @dbbackuptimed nvarchar(500)
+declare @dbbackuptimel nvarchar(500)
+
 declare @dbcompretionRate nvarchar(50)
 declare @dbOutPerSec nvarchar(50)
 declare @dbInPerSec nvarchar(50)
@@ -373,7 +376,7 @@ declare @dbname nvarchar(60)
 
 DECLARE @table1 table(Servername nvarchar(60), DBName nvarchar(60), LastFullBackup datetime,
 LastDiffBackup datetime, NotBackedUpSince int, dbstatus nvarchar(30), dbsize nvarchar(300), dbbackupsize nvarchar(300),
-dbbackuptime nvarchar(500),dbcompretionRate nvarchar(50),dbInPerSec nvarchar(50),dbOutPerSec nvarchar(50), [Status] nvarchar(40), lastTlogBackup datetime,
+dbbackuptimef nvarchar(500),dbbackuptimed nvarchar(500),dbbackuptimel nvarchar(500),dbcompretionRate nvarchar(50),dbInPerSec nvarchar(50),dbOutPerSec nvarchar(50), [Status] nvarchar(40), lastTlogBackup datetime,
 [Recovery] varchar(20), NoTLogSince int, TlogBkpStatus nvarchar(40))
 
 declare c1 cursor for Select Distinct convert(varchar(60),@@SERVERNAME) as Servername,
@@ -459,7 +462,10 @@ SET @NotBackedupSinceHrs = @FinalAge
 set @dbstatus = (select ISNULL(convert(varchar(20), DATABASEPROPERTYEX(@dbname, 'status')),''))
 set @dbsize = (select ISNULL(cast(CONVERT( DECIMAL(10,2),SUM(cast(size *8.0/1024   as bigint)))as nvarchar(300))+ ' MB','')  from sys.master_files where db_name(database_id)=@dbname)
 set @dbbackupsize = (select ISNULL(cast(CONVERT(DECIMAL(10,2),MAX(compressed_backup_size /1024.0/1024.0))as nvarchar(300))+' MB','') from msdb.dbo.backupset WHERE database_name=@dbname)
-set @dbbackuptime = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname)
+set @dbbackuptimef = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='D')
+set @dbbackuptimed = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='I')
+set @dbbackuptimel = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='L')
+
 set @dbcompretionRate = (select ISNULL(CAST(CAST(CONVERT(DECIMAL(10,2),MAX(backup_size)/1024.0/1024.0)/CONVERT(DECIMAL(10,2),MAX(compressed_backup_size)/1024.0/1024.0) AS decimal(10,2))AS nvarchar(30)),'') from msdb.dbo.backupset WHERE database_name=@dbname)
 
 set @dbInPerSec  =(SELECT   ISNULL(cast(SUM(cast(num_of_bytes_written/1024/1024 as bigint)) as nvarchar(50))+ ' MB','') AS DISK_num_of_bytes_written FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs INNER JOIN sys.master_files AS mf WITH (NOLOCK) ON vfs.database_id = mf.database_id AND vfs.file_id = mf.file_id and db_name(mf.database_id)=@dbname)
@@ -475,7 +481,7 @@ set @dbOutPerSec=(select ISNULL(CAST(CAST(CONVERT(DECIMAL(10,2),MAX(backup_size)
 
 
 INSERT INTO @table1 values(@ServerName, @dbname, @LastFullBackup, @LastDiffBackup,
-@NotBackedupSinceHrs, @dbstatus,@dbsize,@dbbackupsize,@dbbackuptime,@dbcompretionRate,@dbInPerSec, @dbOutPerSec ,@status, @lastTlogBackup, @Recovery, @NoTLogSince, @TlogBkpStatus)
+@NotBackedupSinceHrs, @dbstatus,@dbsize,@dbbackupsize,@dbbackuptimef,@dbbackuptimed,@dbbackuptimel,@dbcompretionRate,@dbInPerSec, @dbOutPerSec ,@status, @lastTlogBackup, @Recovery, @NoTLogSince, @TlogBkpStatus)
 
 --set @dbstatus = null
 
@@ -508,11 +514,13 @@ END
 UPDATE @table1 SET Status = 'Not in Online',TlogBkpStatus = 'Not in Online' where dbstatus<>'ONLINE'
 
 SELECT Servername as 'SQLInstanceName',DBName as 'DatabaseName',LastFullBackup,
-LastDiffBackup,NotBackedUpSince as 'LastBackup_Hrs',dbstatus,dbsize,dbbackupsize,dbbackuptime,dbcompretionRate,dbInPerSec,dbOutPerSec  ,[Status] as 'Backup Status',lastTlogBackup , [Recovery] ,
+LastDiffBackup,NotBackedUpSince as 'LastBackup_Hrs',dbstatus,dbsize,dbbackupsize,dbbackuptimef as fullBackupTime,dbbackuptimed as diffBackupTime,dbbackuptimel as logBackupTime,dbcompretionRate,dbInPerSec,dbOutPerSec  ,[Status] as 'Backup Status',lastTlogBackup , [Recovery] ,
 NoTLogSince,TlogBkpStatus FROM @table1 order by DBName
 
 CLOSE c1
 DEALLOCATE c1
+
+
 
 
 "; }
