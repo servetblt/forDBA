@@ -10,6 +10,8 @@ GO
 
 CREATE TABLE [dbo].[tblBackupInfoNews](
 	[SQLInstanceName] [nvarchar](150) NULL,
+	[ServerIP] [nvarchar](60) NULL,
+	[SQLInstancePort] [nvarchar](60) NULL,
 	[DatabaseName] [nvarchar](150) NULL,
 	[LastFullBackup] [datetime] NULL,
 	[LastDiffBackup] [datetime] NULL,
