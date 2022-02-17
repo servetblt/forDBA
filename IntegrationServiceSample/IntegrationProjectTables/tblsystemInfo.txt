@@ -1,17 +1,20 @@
-CREATE TABLE dbo.tblsystemInfo
-(
-    sinstance nvarchar(200),
-    sqlversion nvarchar(200),
-	sql_edition nvarchar(200),
-    service_pack_level nvarchar(200),
-	build_number nvarchar(200),
-    port_number nvarchar(200),
-	min_server_memory nvarchar(200),
-    max_server_memory nvarchar(200),
-	server_memory nvarchar(200),
-    server_core nvarchar(200),
-	sql_core nvarchar(200),
-    max_dop nvarchar(200),
-	cost_threshould_for_paralelism nvarchar(200),
-    logtime datetime
-);
+CREATE TABLE [dbo].[tblServerInformation](
+	[serverInstanceName] [nvarchar](200) NULL,
+	[serverIP] [nvarchar](200) NULL,
+	[serverPort] [nvarchar](200) NULL,
+	[sqlversion] [nvarchar](200) NULL,
+	[sql_edition] [nvarchar](200) NULL,
+	[service_pack_level] [nvarchar](200) NULL,
+	[build_number] [nvarchar](200) NULL,
+	[port_number] [nvarchar](200) NULL,
+	[min_server_memory] [nvarchar](200) NULL,
+	[max_server_memory] [nvarchar](200) NULL,
+	[server_memory] [nvarchar](200) NULL,
+	[server_core] [nvarchar](200) NULL,
+	[sql_core] [nvarchar](200) NULL,
+	[max_dop] [nvarchar](200) NULL,
+	[cost_threshould_for_paralelism] [nvarchar](200) NULL,
+	[logtime] [datetime] NULL
+) ON [PRIMARY]
+GO
+
