@@ -10,6 +10,8 @@ GO
 
 CREATE TABLE [dbo].[tblUserInformation](
 	[serverName] [nvarchar](150) NULL,
+	[serverIP] [nvarchar](150) NULL,
+	[serverPort] [nvarchar](150) NULL,
 	[dbname] [nvarchar](150) NULL,
 	[dbUser] [nvarchar](150) NULL,
 	[serverLogin] [nvarchar](150) NULL,
