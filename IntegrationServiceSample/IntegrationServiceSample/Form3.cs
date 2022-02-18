@@ -536,22 +536,18 @@ insert into tblBackupInfoNews values(
             {
                 selectedIndex = "2";
                 query = @"
-
+		
 
 
 SET NOCOUNT ON
 declare @check int
 set @check = 24-- In hours, based on backup status will be updated, if no full or
-
-
 declare @CheckTlog int
 set @CheckTlog = 4-- In hours, based on tlog backup, status will be updated. 
-
 declare @LastFullBackup datetime
 declare @LastDiffBackup datetime
 declare @lastTlogBackup datetime
 declare @NotBackedupSinceHrs int
-
 declare @NoTLogSince int
 declare @status nvarchar(40)
 declare @Recovery nvarchar(20)
@@ -562,164 +558,115 @@ declare @dbbackupsize nvarchar(300)
 declare @dbbackuptimef nvarchar(500)
 declare @dbbackuptimed nvarchar(500)
 declare @dbbackuptimel nvarchar(500)
-
 declare @dbcompretionRate nvarchar(50)
 declare @dbOutPerSec nvarchar(50)
 declare @dbInPerSec nvarchar(50)
-
 declare @FinalAge int
 declare @hf int
 declare @hd int
 declare @hl int
 declare @ServerName nvarchar(60)
+declare @ServerIP nvarchar(60)
+declare @ServerPort nvarchar(60)
 declare @dbname nvarchar(60)
-
-
-DECLARE @table1 table(Servername nvarchar(60), DBName nvarchar(60), LastFullBackup datetime,
+DECLARE @table1 table(Servername nvarchar(60),ServerIP nvarchar(60),ServerPort nvarchar(60), DBName nvarchar(60), LastFullBackup datetime,
 LastDiffBackup datetime, NotBackedUpSince int, dbstatus nvarchar(30), dbsize nvarchar(300), dbbackupsize nvarchar(300),
 dbbackuptimef nvarchar(500),dbbackuptimed nvarchar(500),dbbackuptimel nvarchar(500),dbcompretionRate nvarchar(50),dbInPerSec nvarchar(50),dbOutPerSec nvarchar(50), [Status] nvarchar(40), lastTlogBackup datetime,
 [Recovery] varchar(20), NoTLogSince int, TlogBkpStatus nvarchar(40))
-
 declare c1 cursor for Select Distinct convert(varchar(60),@@SERVERNAME) as Servername,
+convert(varchar(60),CONNECTIONPROPERTY('local_net_address')) ServerIP,
+convert(varchar(60),CONNECTIONPROPERTY('local_tcp_port')) ServerPort,
    convert(varchar(60), e.database_name) as DBname,
    (Select  convert(varchar(25), Max(backup_finish_date), 100)
    FROM msdb..backupset a Where a.database_name = e.database_name
-
 and  type = 'D'
-
 Group by a.database_name) Last_FullBackup,
 (Select convert(varchar(25), Max(backup_finish_date), 100) From msdb..backupset c
 Where c.database_name = e.database_name 
 and type = 'I' Group by c.database_name) Last_Diff_Backup, NULL as NotBackedUpSinceHrs, NULL as [DBStatus],
 NULL as [Status], (Select convert(varchar(25), Max(backup_finish_date), 100)
 From msdb..backupset c Where c.database_name = e.database_name
-
-
 and type = 'L' Group by c.database_name) Last_Diff_Backup,
 convert(varchar(20), convert(sysname, DatabasePropertyEx(e.database_name, 'Recovery'))) as Recovery,
 NULL, NULL as TlogBkpStatus From msdb..backupset e WHERE e.database_name not in ('tempdb')
 and e.database_name in (Select Distinct name from master..sysdatabases where dbid <> 2)
-
 UNION ALL
-
 SELECT DISTINCT convert(varchar(60),@@SERVERNAME) as Servername,
+convert(varchar(60),CONNECTIONPROPERTY('local_net_address')) ServerIP,
+convert(varchar(60),CONNECTIONPROPERTY('local_tcp_port')) ServerPort,
 convert(varchar(60), name) as DBname,NULL, NULL,NULL as NotBackedUpSinceHrs,NULL AS[DBStatus],
 NULL as [Status],NULL,convert(varchar(20), convert(sysname, DatabasePropertyEx(name, 'Recovery'))),
 NULL,NULL from master..sysdatabases as record
-
 WHERE name NOT IN(SELECT DISTINCT database_name FROM msdb..backupset) 
 and dbid<>2 ORDER BY 1,2
 OPEN c1
-
-FETCH NEXT FROM c1 INTO @ServerName, @dbname, @LastFullBackup, @LastDiffBackup,
+FETCH NEXT FROM c1 INTO @ServerName,@ServerIP,@ServerPort,@dbname, @LastFullBackup, @LastDiffBackup,
 @NotBackedupSinceHrs, @dbstatus,@status, @lastTlogBackup, @Recovery, @NoTLogSince, @TlogBkpStatus
-
-
 WHILE @@FETCH_STATUS = 0
-
 BEGIN
-
 IF(@LastFullBackup IS NULL)
-
 BEGIN
-
 set @LastFullBackup = '1900-01-01 00:00:00.000'
-
 END
-
 IF(@LastDiffBackup IS NULL)
-
 BEGIN
-
 set @LastDiffBackup = '1900-01-01 00:00:00.000'
-
 END
-
 IF(@lastTlogBackup IS NULL)
-
 BEGIN
-
 set @lastTlogBackup = '1900-01-01 00:00:00.000'
-
 END
-
 select @hf = datediff(hh, @LastFullBackup, GETDATE())
-
 select @hd = datediff(hh, @LastDiffBackup, GETDATE())
-
 select @NoTLogSince = datediff(hh, @lastTlogBackup, GETDATE())
-
 IF(@hf < @hd)
-
 SET @FinalAge = @hf
-
 ELSE
-
 SET @FinalAge = @hd
 SET @NotBackedupSinceHrs = @FinalAge
-
 --set @dbstatus = null
-
 set @dbstatus = (select ISNULL(convert(varchar(20), DATABASEPROPERTYEX(@dbname, 'status')),''))
 set @dbsize = (select ISNULL(cast(CONVERT( DECIMAL(10,2),SUM(cast(size *8.0/1024   as bigint)))as nvarchar(300))+ ' MB','')  from sys.master_files where db_name(database_id)=@dbname)
 set @dbbackupsize = (select ISNULL(cast(CONVERT(DECIMAL(10,2),MAX(compressed_backup_size /1024.0/1024.0))as nvarchar(300))+' MB','') from msdb.dbo.backupset WHERE database_name=@dbname)
 set @dbbackuptimef = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='D')
 set @dbbackuptimed = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='I')
 set @dbbackuptimel = (SELECT  ISNULL(right ('0'+CONVERT(varchar(6), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))/3600),2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), (DATEDIFF(second,MAX(backup_start_date), MAX(backup_finish_date)) % 3600) / 60), 2)+ ':'+ RIGHT('0' + CONVERT(varchar(2), DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)) % 60), 2),'') from msdb..backupset WHERE database_name=@dbname and type='L')
-
 set @dbcompretionRate = (select ISNULL(CAST(CAST(CONVERT(DECIMAL(10,2),MAX(backup_size)/1024.0/1024.0)/CONVERT(DECIMAL(10,2),MAX(compressed_backup_size)/1024.0/1024.0) AS decimal(10,2))AS nvarchar(30)),'') from msdb.dbo.backupset WHERE database_name=@dbname)
-
 set @dbInPerSec  =(SELECT   ISNULL(cast(SUM(cast(num_of_bytes_written/1024/1024 as bigint)) as nvarchar(50))+ ' MB','') AS DISK_num_of_bytes_written FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs INNER JOIN sys.master_files AS mf WITH (NOLOCK) ON vfs.database_id = mf.database_id AND vfs.file_id = mf.file_id and db_name(mf.database_id)=@dbname)
 set @dbOutPerSec=(select ISNULL(CAST(CAST(CONVERT(DECIMAL(10,2),MAX(backup_size)/1024.0/1024.0)/(case when CONVERT(DECIMAL(10,2),DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date)))=0 then 1 else CONVERT(DECIMAL(10,2),DATEDIFF(second, MAX(backup_start_date), MAX(backup_finish_date))) end) AS decimal(10,2))AS nvarchar(30))+' MB','') from msdb.dbo.backupset WHERE database_name=@dbname)
-
-
 --UPDATE @table1 SET[Status] = 'DB in ' + @dbstatus + ' state' where dbStatus<>'ONLINE'
-
   --print @dbstatus
-
-
 --print @dbname
-
-
-INSERT INTO @table1 values(@ServerName, @dbname, @LastFullBackup, @LastDiffBackup,
+INSERT INTO @table1 values(@ServerName,@ServerIP,@ServerPort, @dbname, @LastFullBackup, @LastDiffBackup,
 @NotBackedupSinceHrs, @dbstatus,@dbsize,@dbbackupsize,@dbbackuptimef,@dbbackuptimed,@dbbackuptimel,@dbcompretionRate,@dbInPerSec, @dbOutPerSec ,@status, @lastTlogBackup, @Recovery, @NoTLogSince, @TlogBkpStatus)
-
 --set @dbstatus = null
-
 UPDATE @table1 SET[Status] = CASE
 WHEN NotBackedUpSince <= @check   THEN 'Success'
 WHEN NotBackedUpSince > = @check THEN '!!! Failed, Action required !!!!'
-
 END
 --Print @dbstatus
-
 UPDATE @table1 SET Status = @dbstatus where dbstatus<>'ONLINE'
-
-
 UPDATE @table1 SET Status = 'Success'where DBName = 'master' and NotBackedUpSince< = @check + 144
 UPDATE @table1 SET TlogBkpStatus = CASE
 WHEN NoTLogSince<= @CheckTlog THEN 'Success'
 WHEN NoTLogSince>= @CheckTlog THEN '!!! Failed, Action required !!!!'
      END
-
-
 UPDATE @table1 SET TlogBkpStatus = 'NA' where[Recovery] = 'SIMPLE' OR DBName = 'model'
-
   --print @dbstatus
-
-
-FETCH NEXT FROM c1 INTO @ServerName, @dbname, @LastFullBackup, @LastDiffBackup,
+FETCH NEXT FROM c1 INTO @ServerName,@ServerIP,@ServerPort,@dbname, @LastFullBackup, @LastDiffBackup,
 @NotBackedupSinceHrs, @dbstatus,@status,
 @lastTlogBackup, @Recovery, @NoTLogSince, @TlogBkpStatus
 END
 UPDATE @table1 SET Status = 'Not in Online',TlogBkpStatus = 'Not in Online' where dbstatus<>'ONLINE'
-
-SELECT Servername as 'SQLInstanceName',DBName as 'DatabaseName',LastFullBackup,
+SELECT Servername as 'SQLInstanceName',ServerIP,ServerPort,DBName as 'DatabaseName',LastFullBackup,
 LastDiffBackup,NotBackedUpSince as 'LastBackup_Hrs',dbstatus,dbsize,dbbackupsize,dbbackuptimef as fullBackupTime,dbbackuptimed as diffBackupTime,dbbackuptimel as logBackupTime,dbcompretionRate,dbInPerSec,dbOutPerSec  ,[Status] as 'Backup Status',lastTlogBackup , [Recovery] ,
 NoTLogSince,TlogBkpStatus FROM @table1 order by DBName
-
 CLOSE c1
 DEALLOCATE c1
+
+
+
+
 ";
                 getServer();
                 getData();
